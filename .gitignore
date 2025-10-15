@@ -1,0 +1,78 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+.Python
+
+# Virtual environments
+env/
+venv/
+ENV/
+.venv/
+.env/
+env.bak/
+venv.bak/
+
+# Environment variable files
+.env
+.env.local
+.env.*.local
+.envrc
+secrets.*
+.venv/
+
+# Packaging / distribution
+build/
+dist/
+eggs/
+*.egg-info/
+.installed.cfg
+*.egg
+*.whl
+
+# PyInstaller
+*.spec
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Test / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+coverage.xml
+
+# Type-checkers
+.mypy_cache/
+.pyre/
+.pytype/
+
+# Jupyter
+.ipynb_checkpoints
+
+# Database
+*.sqlite3
+db.sqlite3
+
+# IDEs and editors
+.vscode/
+.idea/
+*.sublime-workspace
+*.sublime-project
+*.swp
+*~ 
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and runtime files
+*.log
+*.pid
+*.sock
+
+# Static / build artifacts
+staticfiles/
+node_modules/
