@@ -40,6 +40,6 @@ HIGHLIGHT_COLORS = {
     'selected': (106, 190, 48, 200),     # Green for selected piece
     'valid_move': (106, 190, 48, 150),   # Green for valid moves
     'capture': (255, 50, 50, 200),       # Red for capture moves
-    'en_passant': (255, 165, 0, 200),    # Orange for en passant moves
+    'en_passant': (255, 50, 50, 200),    # Bright purple for en passant
     'check': (255, 0, 0, 100)            # Red background for check
 }

@@ -17,6 +17,7 @@ class Board:
         self.captured_white_pieces = []  # Pieces captured by black
         self.captured_black_pieces = []  # Pieces captured by white
         self.valid_moves = []
+        self.enpassant_move =[]
         self.last_move = None  # Track last move for en passant
         self._setup_pieces()
     
@@ -58,6 +59,7 @@ class Board:
                 # These will be displayed as special highlighted squares
                 for en_passant_move in en_passant_moves:
                     capture_moves.append(en_passant_move)
+                    self.enpassant_move.append((row,col))
                     print(f"♟️ En passant available for {piece.color} pawn at ({row},{col}) -> {en_passant_move}")
             # ============================================================================
             
@@ -69,11 +71,16 @@ class Board:
             
             # Highlight capture moves (including en passant)
             for move_row, move_col in capture_moves:
+                print(f'enpassant moves available {capture_moves}')
                 target_square = self.squares[move_row][move_col]
                 # Check if this is an en passant move for special highlighting
                 is_en_passant = self._is_en_passant_position((row, col), (move_row, move_col))
                 if is_en_passant:
-                    target_square.set_highlight('en_passant')
+                    target_square.set_highlight('capture')
+                    direction = 1 if piece.color == 'white' else -1
+                    square_with_piece = self.squares[target_square.row + direction][move_col]
+                    print(f'square_with_piece {square_with_piece}')
+                    square_with_piece.set_highlight('en_passant')
                     print(f"🎯 En passant target highlighted at ({move_row},{move_col})")
                 else:
                     target_square.set_highlight('capture')
@@ -225,16 +232,16 @@ class Board:
         # ============================================================================
         if is_en_passant:
             # Determine movement direction based on pawn color
-            direction = -1 if from_square.piece.color == 'white' else 1
+            direction = 1 if from_square.piece.color == 'white' else -1
             
             # The pawn being captured is diagonally behind the target square
-            captured_row = to_square.row + direction
+            captured_row = to_square.row
             captured_square = self.squares[captured_row][to_square.col]
-            captured_piece = captured_square.piece
+            square_with_piece = self.squares[captured_square.row + direction][to_square.col]
+            captured_piece = square_with_piece.piece
             
             # Remove the captured pawn from the board
-            captured_square.clear()
-            print(f"🎯 En passant executed! Captured: {captured_piece.color} {captured_piece.name}")
+            square_with_piece.clear()
         else:
             # Regular capture - piece is on the target square
             captured_piece = to_square.piece

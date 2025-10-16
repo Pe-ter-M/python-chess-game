@@ -14,6 +14,9 @@ class Square:
             SQUARE_SIZE,
             SQUARE_SIZE
         )
+
+    def __repr__(self) -> str:
+        return f'Square({self.row}, {self.col}, {self.piece})'
     
     def set_highlight(self, highlight_type):
         """Set highlight type: 'selected', 'valid_move', 'capture', 'check'"""
@@ -62,6 +65,16 @@ class Square:
                 if self.piece and self.piece.image:
                     image_rect = self.piece.image.get_rect(center=self.rect.center)
                     screen.blit(self.piece.image, image_rect)
+            elif self.highlight == 'en_passant':
+                # Four corner dots for en passant
+                corners = [
+                    (self.rect.left + 8, self.rect.top + 8),      # Top-left
+                    (self.rect.right - 8, self.rect.top + 8),     # Top-right
+                    (self.rect.left + 8, self.rect.bottom - 8),   # Bottom-left
+                    (self.rect.right - 8, self.rect.bottom - 8)   # Bottom-right
+                ]
+                for corner in corners:
+                    pygame.draw.circle(screen, highlight_color, corner, 4)
         
         # Draw piece if exists (unless we're in check highlight)
         if self.piece and self.piece.image and self.highlight != 'check':
