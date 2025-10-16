@@ -14,9 +14,16 @@ SQUARE_SIZE = 80
 BOARD_PX = BOARD_SIZE * SQUARE_SIZE
 MARGIN = 50
 
+# Margins for coordinates
+LEFT_MARGIN = 50    # Space for left-side numbers
+TOP_MARGIN = 50     # Space for top letters
+RIGHT_MARGIN = 200  # Space for captured pieces display
+BOTTOM_MARGIN = 50  # Space at bottom
+
 # Window dimensions
-WINDOW_WIDTH = BOARD_PX + 2 * MARGIN
-WINDOW_HEIGHT = BOARD_PX + 2 * MARGIN
+WINDOW_WIDTH = BOARD_PX + LEFT_MARGIN + RIGHT_MARGIN
+WINDOW_HEIGHT = BOARD_PX + TOP_MARGIN + BOTTOM_MARGIN
+
 
 # Piece types
 PAWN = 'pawn'
@@ -40,6 +47,12 @@ HIGHLIGHT_COLORS = {
     'selected': (106, 190, 48, 200),     # Green for selected piece
     'valid_move': (106, 190, 48, 150),   # Green for valid moves
     'capture': (255, 50, 50, 200),       # Red for capture moves
-    'en_passant': (255, 50, 50, 200),    # Bright purple for en passant
+    'en_passant': (148, 0, 211, 200),    # Purple for en passant
+    'castling': (0, 191, 255, 200),      # Blue for castling moves
     'check': (255, 0, 0, 100)            # Red background for check
 }
+# Window dimensions (increased for side panel)
+
+# UI Colors
+UI_TEXT_COLOR = (200, 200, 200)
+UI_BACKGROUND = (40, 40, 40)

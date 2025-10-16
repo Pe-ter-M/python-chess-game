@@ -20,21 +20,170 @@ class Board:
         self.enpassant_move =[]
         self.last_move = None  # Track last move for en passant
         self._setup_pieces()
+
+        # ============================================================================
+    # CHECK AND CHECKMATE DETECTION METHODS
+    # ============================================================================
+    def can_castle(self, color, side):
+            """
+            Check if castling is possible for the specified color and side.
+            
+            Castling conditions:
+            1. King and rook haven't moved
+            2. No pieces between king and rook
+            3. King is not in check
+            4. King doesn't move through check
+            
+            Args:
+                color: 'white' or 'black'
+                side: 'king' (short) or 'queen' (long) side
+                
+            Returns:
+                Boolean indicating if castling is possible
+            """
+            row = 7 if color == 'white' else 0
+            king_col = 4
+            rook_col = 7 if side == 'king' else 0
+            
+            king_square = self.squares[row][king_col]
+            rook_square = self.squares[row][rook_col]
+            
+            # 1. Check if pieces exist and haven't moved
+            if (king_square.is_empty() or rook_square.is_empty() or not king_square.piece or
+                king_square.piece.name != 'king' or not rook_square.piece or rook_square.piece.name != 'rook' or
+                king_square.piece.has_moved or rook_square.piece.has_moved):
+                return False
+            
+            # 2. Check if king is in check
+            if self.is_in_check(color):
+                return False
+            
+            # 3. Check if squares between are empty
+            if side == 'king':
+                for col in range(5, 7):  # f1 and g1 for white
+                    if not self.squares[row][col].is_empty():
+                        return False
+            else:  # queen side
+                for col in range(1, 4):  # b1, c1, d1 for white
+                    if not self.squares[row][col].is_empty():
+                        return False
+            
+            # 4. Check if king moves through check
+            if side == 'king':
+                # Check if f1 (for white) is under attack
+                if self._is_square_under_attack((row, 5), color):
+                    return False
+            else:  # queen side
+                # Check if c1 and d1 (for white) are under attack
+                if (self._is_square_under_attack((row, 2), color) or 
+                    self._is_square_under_attack((row, 3), color)):
+                    return False
+            
+            return True
+    
+    def _is_square_under_attack(self, position, defender_color):
+        """
+        Check if a square is under attack by enemy pieces.
+        
+        Args:
+            position: Tuple (row, col) of square to check
+            defender_color: Color of the defending player
+            
+        Returns:
+            Boolean indicating if square is under attack
+        """
+        attacker_color = 'black' if defender_color == 'white' else 'white'
+        
+        for row in range(BOARD_SIZE):
+            for col in range(BOARD_SIZE):
+                square = self.squares[row][col]
+                if (not square.is_empty() and square.piece and 
+                    square.piece.color == attacker_color):
+                    moves, captures = square.piece.get_valid_moves(self, (row, col))
+                    if position in captures:
+                        return True
+        return False
+    
+    def execute_castle(self, color, side):
+        """
+        Execute castling move.
+        
+        Args:
+            color: 'white' or 'black'
+            side: 'king' (short) or 'queen' (long) side
+        """
+        row = 7 if color == 'white' else 0
+        
+        if side == 'king':
+            # Move king from e1 to g1, rook from h1 to f1
+            king_from_col, king_to_col = 4, 6
+            rook_from_col, rook_to_col = 7, 5
+        else:  # queen side
+            # Move king from e1 to c1, rook from a1 to d1
+            king_from_col, king_to_col = 4, 2
+            rook_from_col, rook_to_col = 0, 3
+        
+        # Move king
+        square_King = self.squares[row][king_from_col]
+        if square_King.piece:
+            king = square_King.piece
+            self.squares[row][king_to_col].set_piece(king)
+            self.squares[row][king_from_col].clear()
+            king.has_moved = True
+        
+        # Move rook
+        square_ = self.squares[row][rook_from_col]
+        if square_.piece:
+            rook = square_.piece
+            self.squares[row][rook_to_col].set_piece(rook)
+            self.squares[row][rook_from_col].clear()
+            rook.has_moved = True
+        
+        print(f"🏰 {color.title()} castled {side} side!")
+
+    # ============================================================================
+    # UPDATED CHECK/CHECKMATE METHODS FOR REAL-TIME DETECTION
+    # ============================================================================
+    
+    def is_in_check(self, color):
+        """
+        Check if the king of the specified color is in check.
+        Now called after every move to provide real-time feedback.
+        """
+        king_position = self._find_king_position(color)
+        if not king_position:
+            return False
+        
+        enemy_color = 'black' if color == 'white' else 'white'
+        for row in range(BOARD_SIZE):
+            for col in range(BOARD_SIZE):
+                square = self.squares[row][col]
+                if (not square.is_empty() and square.piece and 
+                    square.piece.color == enemy_color):
+                    moves, captures = square.piece.get_valid_moves(self, (row, col))
+                    if king_position in captures:
+                        return True
+        return False
+    
+    def _find_king_position(self, color):
+        """Find the position of the king for the specified color."""
+        for row in range(BOARD_SIZE):
+            for col in range(BOARD_SIZE):
+                square = self.squares[row][col]
+                if (not square.is_empty() and square.piece and
+                    square.piece.name == 'king' and 
+                    square.piece.color == color):
+                    return (row, col)
+        return None
+
+    # ============================================================================
+    # UPDATED MOVE DISPLAY METHODS WITH CASTLING
+    # ============================================================================
     
     def show_valid_moves(self, row, col):
         """
         Calculate and display valid moves for the piece at the given position.
-        
-        EN PASSANT LOGIC:
-        - When a pawn is selected, check if en passant capture is available
-        - En passant occurs when an enemy pawn just moved two squares forward
-        - The capturing pawn must be on the 5th rank (for white) or 4th rank (for black)
-        - The enemy pawn must be adjacent to the capturing pawn
-        - The capture happens diagonally behind the enemy pawn
-        
-        Args:
-            row: Row coordinate of the selected piece
-            col: Column coordinate of the selected piece
+        Now includes castling moves for kings.
         """
         piece = self.squares[row][col].piece
         
@@ -44,47 +193,476 @@ class Board:
         # Clear previous valid moves
         self.valid_moves = []
         
-        # Get valid moves based on piece type
-        if hasattr(piece, 'get_valid_moves'):
-            moves, capture_moves = piece.get_valid_moves(self, (row, col))
+        # Get legal moves (considering check/checkmate)
+        moves, capture_moves = self.get_legal_moves(row, col)
+        
+        # ============================================================================
+        # SPECIAL MOVES: CASTLING
+        # ============================================================================
+        if piece.name == 'king' and not piece.has_moved:
+            # Check for castling on both sides
+            if self.can_castle(piece.color, 'king'):
+                castling_move = (row, 6) if piece.color == 'white' else (row, 6)
+                moves.append(castling_move)
+                print(f"🏰 Kingside castling available for {piece.color}")
             
-            # ============================================================================
-            # EN PASSANT AVAILABILITY CHECK
-            # ============================================================================
-            if piece.name == 'pawn':
-                # Check if this pawn can perform en passant capture
-                en_passant_moves = self._get_available_en_passant_moves(piece, (row, col))
-                
-                # Add en passant moves to the list of possible captures
-                # These will be displayed as special highlighted squares
-                for en_passant_move in en_passant_moves:
+            if self.can_castle(piece.color, 'queen'):
+                castling_move = (row, 2) if piece.color == 'white' else (row, 2)
+                moves.append(castling_move)
+                print(f"🏰 Queenside castling available for {piece.color}")
+        
+        # ============================================================================
+        # SPECIAL MOVES: EN PASSANT
+        # ============================================================================
+        if piece.name == 'pawn':
+            en_passant_moves = self._get_available_en_passant_moves(piece, (row, col))
+            for en_passant_move in en_passant_moves:
+                if self._is_move_legal((row, col), en_passant_move, piece.color):
                     capture_moves.append(en_passant_move)
-                    self.enpassant_move.append((row,col))
+                    self.enpassant_move.append((row, col))
                     print(f"♟️ En passant available for {piece.color} pawn at ({row},{col}) -> {en_passant_move}")
-            # ============================================================================
-            
-            # Highlight regular moves (forward movement)
-            for move_row, move_col in moves:
-                target_square = self.squares[move_row][move_col]
+        
+        # Highlight regular moves
+        for move_row, move_col in moves:
+            target_square = self.squares[move_row][move_col]
+            # Check if this is a castling move for special highlighting
+            if (piece.name == 'king' and not piece.has_moved and 
+                abs(move_col - col) == 2):  # Castling moves are 2 squares
+                target_square.set_highlight('castling')
+            else:
                 target_square.set_highlight('valid_move')
-                self.valid_moves.append((move_row, move_col))
+            self.valid_moves.append((move_row, move_col))
+        
+        # Highlight capture moves (including en passant)
+        for move_row, move_col in capture_moves:
+            target_square = self.squares[move_row][move_col]
+            is_en_passant = self._is_en_passant_position((row, col), (move_row, move_col))
+            if is_en_passant:
+                target_square.set_highlight('capture')
+                direction = 1 if piece.color == 'white' else -1
+                square_with_piece = self.squares[target_square.row + direction][move_col]
+                square_with_piece.set_highlight('en_passant')
+            else:
+                target_square.set_highlight('capture')
+            self.valid_moves.append((move_row, move_col))
+        
+        # Highlight king if in check (real-time feedback)
+        self._highlight_check()
+    
+    def _highlight_check(self):
+        """Highlight the king if it is in check (called after every move)."""
+        # Clear previous check highlights
+        for row in range(BOARD_SIZE):
+            for col in range(BOARD_SIZE):
+                if self.squares[row][col].highlight == 'check':
+                    self.squares[row][col].clear_highlight()
+        
+        # Highlight kings in check
+        white_king_pos = self._find_king_position('white')
+        black_king_pos = self._find_king_position('black')
+        
+        if white_king_pos and self.is_in_check('white'):
+            row, col = white_king_pos
+            self.squares[row][col].set_highlight('check')
+            print("👑 White king is in check!")
+        
+        if black_king_pos and self.is_in_check('black'):
+            row, col = black_king_pos
+            self.squares[row][col].set_highlight('check')
+            print("👑 Black king is in check!")
+
+    # ============================================================================
+    # UPDATED MOVE EXECUTION WITH CASTLING
+    # ============================================================================
+    def _display_check_status(self, player_in_check):
+        """
+        Display and highlight that a player is in check.
+        
+        Args:
+            player_in_check: 'white' or 'black' - the player who is in check
+        """
+        king_position = self._find_king_position(player_in_check)
+        if king_position:
+            row, col = king_position
+            self.squares[row][col].set_highlight('check')
+            print(f"👑 {player_in_check.title()} king is in check! Choose a move to escape.")
+        
+        # You can also add sound or visual effects here
+        # self._play_check_sound()  # If you implement sound later
+
+    def _display_checkmate(self, player_checkmated):
+        """
+        Display checkmate status and end the game.
+        
+        Args:
+            player_checkmated: 'white' or 'black' - the player who is checkmated
+        """
+        winner = 'black' if player_checkmated == 'white' else 'white'
+        
+        king_position = self._find_king_position(player_checkmated)
+        if king_position:
+            row, col = king_position
+            self.squares[row][col].set_highlight('check')
+        
+        print(f"🎉 {winner.title()} wins by checkmate!")
+        print(f"💀 {player_checkmated.title()} is checkmated!")
+        
+        # You can add game over screen or reset option here
+        # self._show_game_over_screen(winner)  # If you implement UI later
+
+    def handle_click(self, pos):
+            """
+            Handle mouse click events on the board.
+            Check if next player is in check after successful moves.
+            """
+            # Check if game is over
+            game_state = self.get_game_state()
+            if game_state['game_over'] in ['white_win', 'black_win']:
+                print(f"🏆 Game Over! {game_state['game_over'].replace('_win', '').title()} wins!")
+                return None
             
-            # Highlight capture moves (including en passant)
-            for move_row, move_col in capture_moves:
-                print(f'enpassant moves available {capture_moves}')
-                target_square = self.squares[move_row][move_col]
-                # Check if this is an en passant move for special highlighting
-                is_en_passant = self._is_en_passant_position((row, col), (move_row, move_col))
-                if is_en_passant:
-                    target_square.set_highlight('capture')
-                    direction = 1 if piece.color == 'white' else -1
-                    square_with_piece = self.squares[target_square.row + direction][move_col]
-                    print(f'square_with_piece {square_with_piece}')
-                    square_with_piece.set_highlight('en_passant')
-                    print(f"🎯 En passant target highlighted at ({move_row},{move_col})")
+            row, col = self.get_board_position(pos)
+            if row is None or col is None:
+                return None
+            
+            clicked_square = self.squares[row][col]
+
+            # Clicked on empty square that's not a valid move - clear selection
+            if clicked_square.is_empty() and (row, col) not in self.valid_moves:
+                self.clear_cache()
+                return None
+            
+            # No piece selected yet - select this piece if it belongs to current player
+            if not self.selected_square and self.is_current_player_piece(clicked_square.piece):
+                self.selected_square = clicked_square
+                clicked_square.set_highlight('selected')
+                self.show_valid_moves(row, col)
+                return ('piece_selected', clicked_square.piece)
+            else:
+                # Clicked on already selected piece - deselect it
+                if self.selected_square == clicked_square:
+                    self.clear_cache()
+                    return None
+                
+                # Clicked on a different square with selected piece active
+                elif self.selected_square and clicked_square:
+                    # Clicked on a valid move square - execute the move
+                    if (row, col) in self.valid_moves:
+                        moving_piece = self.selected_square.piece
+                        from_position = (self.selected_square.row, self.selected_square.col)
+                        
+                        # ============================================================================
+                        # CHECK FOR SPECIAL MOVES
+                        # ============================================================================
+                        
+                        # Check for castling
+                        is_castling = (moving_piece.name == 'king' and 
+                                    not moving_piece.has_moved and 
+                                    abs(col - self.selected_square.col) == 2)
+                        
+                        # Check for en passant
+                        is_en_passant = self._is_en_passant_move_pattern(self.selected_square, clicked_square)
+                        
+                        # Execute the appropriate move
+                        if is_castling:
+                            side = 'king' if col > self.selected_square.col else 'queen'
+                            self.execute_castle(moving_piece.color, side)
+                            captured_piece = None
+                        else:
+                            # Regular move or en passant
+                            captured_piece = self.move_piece(self.selected_square, clicked_square, is_en_passant)
+                        
+                        # Update last move information
+                        self._update_last_move(moving_piece, from_position, (row, col), captured_piece)
+                        
+                        # ============================================================================
+                        # CHECK FOR CHECK/CHECKMATE AFTER MOVE (BEFORE SWITCHING PLAYERS)
+                        # ============================================================================
+                        
+                        # Store the next player's color before switching
+                        next_player = 'black' if self.current_player == 'white' else 'white'
+                        
+                        # Check if the move puts the next player in check
+                        next_player_in_check = self.is_in_check(next_player)
+                        next_player_checkmate = self.is_checkmate(next_player)
+                        
+                        # Clear selection and highlights
+                        self.clear_cache()
+                        
+                        # Add captured piece to list if any
+                        if captured_piece:
+                            self.add_captured_piece(captured_piece)
+                        
+                        # ============================================================================
+                        # DISPLAY CHECK STATUS BEFORE SWITCHING TURNS
+                        # ============================================================================
+                        
+                        if next_player_checkmate:
+                            print(f"💀 CHECKMATE! {next_player.title()} loses the game!")
+                            # Game over - don't switch players
+                            self._display_checkmate(next_player)
+                        elif next_player_in_check:
+                            print(f"⚠️ {next_player.title()} is in check!")
+                            # Switch player but highlight they're in check
+                            self.switch_player()
+                            self._display_check_status(next_player)
+                        else:
+                            # Normal move - just switch players
+                            self.switch_player()
+                            print(f"♟️ Move completed. Now it's {self.current_player}'s turn")
+                        
+                        return None
+                    
+                    # Clicked on a different piece of same color - select the new piece
+                    elif self.selected_square and self.is_current_player_piece(clicked_square.piece):
+                        self.clear_cache()
+                        self.selected_square = clicked_square
+                        clicked_square.set_highlight('selected')
+                        self.show_valid_moves(row=row, col=col)
+                        return None
+                    
+                    # Invalid click - clear selection
+                    else:
+                        self.clear_cache()
+                        return None
+    
+    # def _find_king_position(self, color):
+    #     """
+    #     Find the position of the king for the specified color.
+        
+    #     Args:
+    #         color: 'white' or 'black'
+            
+    #     Returns:
+    #         Tuple (row, col) of king's position, or None if not found
+    #     """
+    #     for row in range(BOARD_SIZE):
+    #         for col in range(BOARD_SIZE):
+    #             square = self.squares[row][col]
+    #             if (not square.is_empty() and  square.piece and
+    #                 square.piece.name == 'king' and 
+    #                 square.piece.color == color):
+    #                 return (row, col)
+    #     return None
+    
+    def is_checkmate(self, color):
+        """
+        Check if the specified color is in checkmate.
+        
+        Checkmate occurs when:
+        1. The king is in check
+        2. No legal moves exist that would get the king out of check
+        
+        Args:
+            color: 'white' or 'black'
+            
+        Returns:
+            Boolean indicating if it's checkmate
+        """
+        # Condition 1: Must be in check
+        if not self.is_in_check(color):
+            return False
+        
+        # Condition 2: Try all possible moves for all pieces of this color
+        for row in range(BOARD_SIZE):
+            for col in range(BOARD_SIZE):
+                square = self.squares[row][col]
+                if (not square.is_empty() and square.piece and
+                    square.piece.color == color):
+                    
+                    # Get all possible moves for this piece
+                    moves, captures = square.piece.get_valid_moves(self, (row, col))
+                    all_moves = moves + captures
+                    
+                    # Test each move to see if it gets out of check
+                    for move_row, move_col in all_moves:
+                        if self._is_move_legal((row, col), (move_row, move_col), color):
+                            print(f"♟️ Legal escape move found: {square.piece.name} at ({row},{col}) -> ({move_row},{move_col})")
+                            return False  # Found a move that escapes check
+        
+        print(f"💀 CHECKMATE! {color.title()} loses the game!")
+        return True  # No moves escape check
+    
+    def _is_move_legal(self, from_pos, to_pos, color):
+        """
+        Check if a move is legal (doesn't put/leave king in check).
+        
+        Args:
+            from_pos: Tuple (row, col) of starting position
+            to_pos: Tuple (row, col) of target position
+            color: Color of the moving piece
+            
+        Returns:
+            Boolean indicating if move is legal
+        """
+        from_row, from_col = from_pos
+        to_row, to_col = to_pos
+        
+        # Store original state
+        moving_piece = self.squares[from_row][from_col].piece
+        target_piece = self.squares[to_row][to_col].piece
+        
+        # Make the move temporarily
+        self.squares[to_row][to_col].set_piece(moving_piece)
+        self.squares[from_row][from_col].clear()
+        
+        # Check if king is still in check after move
+        still_in_check = self.is_in_check(color)
+        
+        # Undo the move
+        self.squares[from_row][from_col].set_piece(moving_piece)
+        self.squares[to_row][to_col].set_piece(target_piece)
+        
+        return not still_in_check
+    
+    def get_legal_moves(self, row, col):
+        """
+        Get only legal moves for a piece (that don't put/leave king in check).
+        
+        Args:
+            row: Row of piece
+            col: Column of piece
+            
+        Returns:
+            Tuple of (legal_moves, legal_captures)
+        """
+        piece = self.squares[row][col].piece
+        if not piece:
+            return [], []
+        
+        moves, captures = piece.get_valid_moves(self, (row, col))
+        legal_moves = []
+        legal_captures = []
+        
+        # Filter moves that would put/leave king in check
+        for move in moves + captures:
+            if self._is_move_legal((row, col), move, piece.color):
+                if move in moves:
+                    legal_moves.append(move)
                 else:
-                    target_square.set_highlight('capture')
-                self.valid_moves.append((move_row, move_col))
+                    legal_captures.append(move)
+        
+        return legal_moves, legal_captures
+    
+    def get_game_state(self):
+        """
+        Get the current state of the game.
+        
+        Returns:
+            Dictionary with game state information
+        """
+        white_check = self.is_in_check('white')
+        black_check = self.is_in_check('black')
+        white_checkmate = self.is_checkmate('white')
+        black_checkmate = self.is_checkmate('black')
+        
+        state = {
+            'current_player': self.current_player,
+            'white_in_check': white_check,
+            'black_in_check': black_check,
+            'white_checkmate': white_checkmate,
+            'black_checkmate': black_checkmate,
+        }
+        
+        # Determine overall game state
+        if white_checkmate:
+            state['game_over'] = 'black_win'
+        elif black_checkmate:
+            state['game_over'] = 'white_win'
+        elif white_check:
+            state['game_over'] = 'white_check'
+        elif black_check:
+            state['game_over'] = 'black_check'
+        else:
+            state['game_over'] = 'playing'
+        
+        return state
+    
+    # ============================================================================
+    # UPDATED EXISTING METHODS FOR CHECK/CHECKMATE INTEGRATION
+    # ============================================================================
+    
+   
+    
+ 
+    
+    def _check_post_move_state(self):
+        """Check for check and checkmate after a move is made."""
+        game_state = self.get_game_state()
+        
+        if game_state['white_checkmate']:
+            print("💀 CHECKMATE! White loses the game!")
+        elif game_state['black_checkmate']:
+            print("💀 CHECKMATE! Black loses the game!")
+        elif game_state['white_in_check']:
+            print("⚠️ White is in check!")
+        elif game_state['black_in_check']:
+            print("⚠️ Black is in check!")
+    
+    # def show_valid_moves(self, row, col):
+    #     """
+    #     Calculate and display valid moves for the piece at the given position.
+        
+    #     EN PASSANT LOGIC:
+    #     - When a pawn is selected, check if en passant capture is available
+    #     - En passant occurs when an enemy pawn just moved two squares forward
+    #     - The capturing pawn must be on the 5th rank (for white) or 4th rank (for black)
+    #     - The enemy pawn must be adjacent to the capturing pawn
+    #     - The capture happens diagonally behind the enemy pawn
+        
+    #     Args:
+    #         row: Row coordinate of the selected piece
+    #         col: Column coordinate of the selected piece
+    #     """
+    #     piece = self.squares[row][col].piece
+        
+    #     if not piece:
+    #         return
+        
+    #     # Clear previous valid moves
+    #     self.valid_moves = []
+        
+    #     # Get valid moves based on piece type
+    #     if hasattr(piece, 'get_valid_moves'):
+    #         moves, capture_moves = piece.get_valid_moves(self, (row, col))
+            
+    #         # ============================================================================
+    #         # EN PASSANT AVAILABILITY CHECK
+    #         # ============================================================================
+    #         if piece.name == 'pawn':
+    #             # Check if this pawn can perform en passant capture
+    #             en_passant_moves = self._get_available_en_passant_moves(piece, (row, col))
+                
+    #             # Add en passant moves to the list of possible captures
+    #             # These will be displayed as special highlighted squares
+    #             for en_passant_move in en_passant_moves:
+    #                 capture_moves.append(en_passant_move)
+    #                 self.enpassant_move.append((row,col))
+    #                 print(f"♟️ En passant available for {piece.color} pawn at ({row},{col}) -> {en_passant_move}")
+    #         # ============================================================================
+            
+    #         # Highlight regular moves (forward movement)
+    #         for move_row, move_col in moves:
+    #             target_square = self.squares[move_row][move_col]
+    #             target_square.set_highlight('valid_move')
+    #             self.valid_moves.append((move_row, move_col))
+            
+    #         # Highlight capture moves (including en passant)
+    #         for move_row, move_col in capture_moves:
+    #             print(f'enpassant moves available {capture_moves}')
+    #             target_square = self.squares[move_row][move_col]
+    #             # Check if this is an en passant move for special highlighting
+    #             is_en_passant = self._is_en_passant_position((row, col), (move_row, move_col))
+    #             if is_en_passant:
+    #                 target_square.set_highlight('capture')
+    #                 direction = 1 if piece.color == 'white' else -1
+    #                 square_with_piece = self.squares[target_square.row + direction][move_col]
+    #                 print(f'square_with_piece {square_with_piece}')
+    #                 square_with_piece.set_highlight('en_passant')
+    #                 print(f"🎯 En passant target highlighted at ({move_row},{move_col})")
+    #             else:
+    #                 target_square.set_highlight('capture')
+    #             self.valid_moves.append((move_row, move_col))
     
     def _get_available_en_passant_moves(self, pawn, position):
         """
@@ -330,68 +908,68 @@ class Board:
         self.squares[7][6].set_piece(Knight('white'))  # g1
         self.squares[7][7].set_piece(Rook('white'))    # h1
     
-    def handle_click(self, pos):
-        """
-        Handle mouse click events on the board.
-        """
-        row, col = self.get_board_position(pos)
-        if row is None or col is None:
-            return None
+    # def handle_click(self, pos):
+    #     """
+    #     Handle mouse click events on the board.
+    #     """
+    #     row, col = self.get_board_position(pos)
+    #     if row is None or col is None:
+    #         return None
         
-        clicked_square = self.squares[row][col]
+    #     clicked_square = self.squares[row][col]
 
-        # Clicked on empty square that's not a valid move - clear selection
-        if clicked_square.is_empty() and (row, col) not in self.valid_moves:
-            self.clear_cache()
-            return None
+    #     # Clicked on empty square that's not a valid move - clear selection
+    #     if clicked_square.is_empty() and (row, col) not in self.valid_moves:
+    #         self.clear_cache()
+    #         return None
         
-        # No piece selected yet - select this piece if it belongs to current player
-        if not self.selected_square and self.is_current_player_piece(clicked_square.piece):
-            self.selected_square = clicked_square
-            clicked_square.set_highlight('selected')
-            self.show_valid_moves(row, col)
-            return ('piece_selected', clicked_square.piece)
-        else:
-            # Clicked on already selected piece - deselect it
-            if self.selected_square == clicked_square:
-                self.clear_cache()
-                return None
+    #     # No piece selected yet - select this piece if it belongs to current player
+    #     if not self.selected_square and self.is_current_player_piece(clicked_square.piece):
+    #         self.selected_square = clicked_square
+    #         clicked_square.set_highlight('selected')
+    #         self.show_valid_moves(row, col)
+    #         return ('piece_selected', clicked_square.piece)
+    #     else:
+    #         # Clicked on already selected piece - deselect it
+    #         if self.selected_square == clicked_square:
+    #             self.clear_cache()
+    #             return None
             
-            # Clicked on a different square with selected piece active
-            elif self.selected_square and clicked_square:
-                # Clicked on a valid move square - execute the move
-                if (row, col) in self.valid_moves:
-                    # Check if this is an en passant move (based on the move pattern)
-                    is_en_passant = self._is_en_passant_move_pattern(self.selected_square, clicked_square)
+    #         # Clicked on a different square with selected piece active
+    #         elif self.selected_square and clicked_square:
+    #             # Clicked on a valid move square - execute the move
+    #             if (row, col) in self.valid_moves:
+    #                 # Check if this is an en passant move (based on the move pattern)
+    #                 is_en_passant = self._is_en_passant_move_pattern(self.selected_square, clicked_square)
                     
-                    # Store piece reference BEFORE moving
-                    moving_piece = self.selected_square.piece
-                    from_position = (self.selected_square.row, self.selected_square.col)
+    #                 # Store piece reference BEFORE moving
+    #                 moving_piece = self.selected_square.piece
+    #                 from_position = (self.selected_square.row, self.selected_square.col)
                     
-                    # Move the piece
-                    captured_piece = self.move_piece(self.selected_square, clicked_square, is_en_passant)
+    #                 # Move the piece
+    #                 captured_piece = self.move_piece(self.selected_square, clicked_square, is_en_passant)
                     
-                    # Update last move information
-                    self._update_last_move(moving_piece, from_position, (row, col), captured_piece)
+    #                 # Update last move information
+    #                 self._update_last_move(moving_piece, from_position, (row, col), captured_piece)
                     
-                    self.clear_cache()
-                    if captured_piece:
-                        self.add_captured_piece(captured_piece)
-                    self.switch_player()
-                    return None
+    #                 self.clear_cache()
+    #                 if captured_piece:
+    #                     self.add_captured_piece(captured_piece)
+    #                 self.switch_player()
+    #                 return None
                 
-                # Clicked on a different piece of same color - select the new piece
-                elif self.selected_square and self.is_current_player_piece(clicked_square.piece):
-                    self.clear_cache()
-                    self.selected_square = clicked_square
-                    clicked_square.set_highlight('selected')
-                    self.show_valid_moves(row=row, col=col)
-                    return None
+    #             # Clicked on a different piece of same color - select the new piece
+    #             elif self.selected_square and self.is_current_player_piece(clicked_square.piece):
+    #                 self.clear_cache()
+    #                 self.selected_square = clicked_square
+    #                 clicked_square.set_highlight('selected')
+    #                 self.show_valid_moves(row=row, col=col)
+    #                 return None
                 
-                # Invalid click - clear selection
-                else:
-                    self.clear_cache()
-                    return None
+    #             # Invalid click - clear selection
+    #             else:
+    #                 self.clear_cache()
+    #                 return None
     
     # REST OF YOUR METHODS REMAIN THE SAME
     def clear_cache(self):

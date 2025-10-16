@@ -75,6 +75,13 @@ class Square:
                 ]
                 for corner in corners:
                     pygame.draw.circle(screen, highlight_color, corner, 4)
+            elif self.highlight == 'castling':
+                # Blue border for castling moves
+                pygame.draw.rect(screen, highlight_color, self.rect, 4)
+                # Add castle icon (simplified)
+                center = self.rect.center
+                pygame.draw.rect(screen, highlight_color, 
+                            (center[0]-8, center[1]-8, 16, 16), 2)
         
         # Draw piece if exists (unless we're in check highlight)
         if self.piece and self.piece.image and self.highlight != 'check':
