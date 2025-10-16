@@ -12,6 +12,9 @@ class Piece:
         self.add_image()
         self.adjust_value()
     
+    def __repr__(self) -> str:
+        return f'Pawn({self.color} {self.name})'
+
     def adjust_value(self):
         if self.color == 'white':
             self.value *= 1
