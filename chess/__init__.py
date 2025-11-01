@@ -132,8 +132,10 @@ class ChessGameManager:
         
         # Placeholder - replace with actual AI logic
         # For now, just make a random legal move
-        legal_moves = self._get_all_legal_moves(self.board.current_player)
-        for move in legal_moves:
+        # legal_moves = self._get_all_legal_moves(self.board.current_player)
+        
+        legal_square_moves = self._get_square_ai_piece_with_move(self.board.current_player)
+        for move in legal_square_moves:
             print(move)
         # if legal_moves:
         #     from_square, to_square = legal_moves[0]  # First legal move
@@ -177,6 +179,20 @@ class ChessGameManager:
                         legal_moves.append((from_square, to_square))
         return legal_moves
     
+    def _get_square_ai_piece_with_move(self,color):
+        square_pos = []
+        for row in range(8):
+            for col in range(8):
+                square = self.board.squares[row][col]
+                if not square.is_empty() and (square.piece and square.piece.color == color):
+                    moves, captures = self.board.get_legal_moves(row, col)
+                    if moves :
+                        square_pos.append(moves)
+                    elif captures:
+                        square_pos.append(captures)
+        return square_pos
+
+
     # ============================================================================
     # YOUR EXISTING NODE DEBUGGING FUNCTIONALITY
     # ============================================================================
